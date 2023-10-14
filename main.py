@@ -68,7 +68,7 @@ def clean_post(post_text):
     return post_text
     
 
-def get_post(reddit, sub="confessions", time_filter="all"):
+def get_post(reddit, sub="confession", time_filter="all"):
     
     seen = load_seen()
 
@@ -78,32 +78,35 @@ def get_post(reddit, sub="confessions", time_filter="all"):
 
     while True:
         for post in subreddit.top(time_filter=time_filter, limit=BATCH_SIZE):
-            if post.id not in seen:
+            if post.id not in seen and len(post.selftext.split()) < 1600:
                 seen.append(post.id)
                 dump_seen(seen)
                 return post.title, post.url, clean_post(post.selftext)
         BATCH_SIZE *= 2
 
-def get_image(post_url):
+def get_image(name, username, tweet_content, output_path="post.png"):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     
     driver = webdriver.Chrome(options=chrome_options)
-    driver.get(post_url)
-    time.sleep(2)
-    
-    screenshot_file = "post.png"
-    post_element = driver.find_element(By.TAG_NAME, "shreddit-post")
-    post_element.screenshot(screenshot_file)
+    driver.set_window_size(1920, 1080)
+    driver.get("https://www.tweetgen.com/create/tweet-classic.html")
+    time.sleep(10)
+
+    driver.find_element(By.ID, "nameInput").send_keys(name)
+    driver.find_element(By.ID, "usernameInput").send_keys(username)
+    driver.find_element(By.ID, "tweetTextInput").send_keys(tweet_content)    
+    time.sleep(10)
+
+    tweet_container = driver.find_element(By.ID, "tweetInnerContainer")
+    tweet_container.screenshot(output_path)
 
     driver.quit()
 
-def get_voiceover(post_text, speed=1.2, language="en", gender="Female", output_audio="voiceover.mp3", output_subs="voiceover.vtt"):
+def get_voiceover(post_text, speed=1.2, language="en", gender="Male", output_audio="voiceover_slow.mp3", output_subs="voiceover.vtt"):
     async def async_get_voiceover():
         voices = await VoicesManager.create()
 
-        # You can adjust the criteria to find the voice based on your needs.
-        # For simplicity, I'm using language and gender. You can add more criteria if needed.
         voice = voices.find(Gender=gender, Language=language)
 
         if not voice:
@@ -130,6 +133,16 @@ def get_voiceover(post_text, speed=1.2, language="en", gender="Female", output_a
         loop.run_until_complete(async_get_voiceover())
     finally:
         loop.close()
+    subprocess.run([
+        'ffmpeg', 
+        '-y', 
+        '-i', 
+        output_audio, 
+        '-filter:a', 
+        f"atempo={speed}", 
+        'voiceover.mp3'
+        ])
+
 
 def process_image(img_path):
     img = Image.open(img_path)  
@@ -250,17 +263,17 @@ def pre_process():
     write_title(post_title)
 
     get_voiceover(f"{post_title} {post_text}")
-    # get_image(post_url)
+    get_image("LetsNotMeet Reddit", "LetsNotMeet", post_title)
 
     process_image("post.png")
 
 def composite():
     audio = AudioFileClip("voiceover.mp3")
-    # img = ImageClip("post.png").set_duration(3)
+    img = ImageClip("post.png").set_duration(3)
     background = process_background("background.mp4", audio.duration) 
 
     captions = VideoClip(lambda t: process_captions(t, "voiceover.vtt", audio.duration), duration=audio.duration)
-    # captions = captions.fl(apply_opacity)
+    captions = captions.fl(apply_opacity)
     gray_clip = captions.fl_image(lambda frame: cv2.cvtColor(frame, cv2.COLOR_RGBA2GRAY))
 
     mask_clip = gray_clip.fl_image(lambda frame: threshold(frame))
@@ -268,7 +281,7 @@ def composite():
     isolated_text_clip = isolated_text_clip.set_position("center")
     captions = isolated_text_clip.set_duration(audio.duration)
 
-    video = CompositeVideoClip([background, captions]).set_audio(audio)
+    video = CompositeVideoClip([background, img.set_position("center"), captions]).set_audio(audio)
     video.write_videofile("video.mp4", codec="libx264", fps=24)
 
 if __name__ == "__main__":
