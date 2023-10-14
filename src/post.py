@@ -8,9 +8,11 @@ from selenium_stealth import stealth
 import time
 import json
 
-def load_config(config_path='config.json'):
-    with open(config_path, 'r') as f:
+
+def load_config(config_path="config.json"):
+    with open(config_path, "r") as f:
         return json.load(f)
+
 
 def driver_init(profile_path):
     """
@@ -141,11 +143,11 @@ def post_to_tiktok(
 
     config = load_config()
 
-    FILE_PATH = config['file_path']
-    PROFILE_PATH = config['profile_path']
-    TITLE_FILE = config['title_file']
-    TAGS = config['tags']
-    URL = config['url']
+    FILE_PATH = config["file_path"]
+    PROFILE_PATH = config["profile_path"]
+    TITLE_FILE = config["title_file"]
+    TAGS = config["tags"]
+    URL = config["url"]
 
     with open(TITLE_FILE, "r") as file:
         title = file.read()

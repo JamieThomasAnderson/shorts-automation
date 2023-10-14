@@ -28,28 +28,51 @@ from moviepy.editor import AudioFileClip
 
 
 def load_config(config_path="config.json"):
+    """
+    Load configuration data from a JSON file.
+    
+    :param config_path: Path to the configuration file.
+    :return: Loaded configuration data.
+    """
     with open(config_path, "r") as f:
         return json.load(f)
 
 
 def reddit_init(client_id, client_secret, user_agent):
+    """
+    Initialize a Reddit instance using PRAW.
+    
+    :param client_id: Reddit API client ID.
+    :param client_secret: Reddit API client secret.
+    :param user_agent: User agent string.
+    :return: Initialized Reddit instance.
+    """
     reddit = praw.Reddit(
         client_id=client_id, client_secret=client_secret, user_agent=user_agent
     )
-
     return reddit
 
 
 def load_seen(seen_path="./data/seen.pkl"):
+    """
+    Load seen posts data from a pickle file.
+    
+    :param seen_path: Path to the seen posts file.
+    :return: List of seen posts.
+    """
     seen = []
-
     if os.path.isfile(seen_path):
         with open("seen.pkl", "rb") as f:
             seen = pickle.load(f)
-
     return seen
 
+
 def clean_tmp(tmp_path="./tmp"):
+    """
+    Remove all files from the temporary directory.
+    
+    :param tmp_path: Path to the temporary directory.
+    """
     for filename in os.listdir(tmp_path):
         file_path = os.path.join(tmp_path, filename)
         if os.path.isfile(file_path):
@@ -57,18 +80,39 @@ def clean_tmp(tmp_path="./tmp"):
 
 
 def dump_seen(seen, seen_path="./data/seen.pkl"):
+    """
+    Save seen posts data to a pickle file.
+    
+    :param seen: List of seen posts.
+    :param seen_path: Path to save the seen posts file.
+    """
     with open(seen_path, "wb") as f:
         pickle.dump(seen, f)
 
 
 def clean_post(post_text):
+    """
+    Clean and format a Reddit post's text.
+    
+    :param post_text: Original post text.
+    :return: Cleaned post text.
+    """
     post_text = re.sub(r"http\S+", "", post_text)
     post_text = re.sub(r"[^a-zA-Z0-9.,\s]", "", post_text)
     post_text = post_text.strip().replace("\n", "")
     return post_text
 
-
 def get_post(reddit, sub="confession", time_filter="all", seen_path="./data/seen.pkl"):
+    """
+    Retrieve a Reddit post from a specified subreddit that hasn't been seen before.
+    
+    :param reddit: Initialized Reddit instance.
+    :param sub: Name of the subreddit to retrieve posts from.
+    :param time_filter: Time filter for top posts ("all", "year", "month", etc.).
+    :param seen_path: Path to the seen posts file.
+    :return: Tuple containing the post's title, URL, and cleaned text.
+    """
+
     seen = load_seen(seen_path=seen_path)
 
     BATCH_SIZE = 10
@@ -85,6 +129,15 @@ def get_post(reddit, sub="confession", time_filter="all", seen_path="./data/seen
 
 
 def get_image(name, username, tweet_content, output_path="post.png"):
+    """
+    Generate an image of a simulated Twitter post using TweetGen.
+    
+    :param name: Display name for the simulated Twitter post.
+    :param username: Username for the simulated Twitter post.
+    :param tweet_content: Content of the simulated tweet.
+    :param output_path: Path to save the generated image.
+    """
+
     chrome_options = Options()
     chrome_options.add_argument("--headless")
 
@@ -111,6 +164,15 @@ def get_voiceover(
     output_audio="voiceover.mp3",
     output_subs="voiceover.vtt",
 ):
+    """
+    Generate a voiceover and its corresponding subtitles for the provided text.
+
+    :param post_text: Text content to be converted to voiceover.
+    :param language: Language of the voiceover (default is "en").
+    :param gender: Gender preference for the voice ("Male" or "Female").
+    :param output_audio: Path to save the generated audio file.
+    :param output_subs: Path to save the generated subtitles in VTT format.
+    """
     async def async_get_voiceover():
         voices = await VoicesManager.create()
 
@@ -145,6 +207,12 @@ def get_voiceover(
 
 
 def process_image(img_path):
+    """
+    Add padding to an image.
+
+    :param img_path: Path to the image file to be processed.
+    """
+
     img = Image.open(img_path)
     width, height = img.size
 
@@ -155,6 +223,13 @@ def process_image(img_path):
 
 
 def process_background(background_path, audio_duration):
+    """
+    Process a video background to match the duration of an audio clip.
+
+    :param background_path: Path to the video background.
+    :param audio_duration: Duration of the audio clip to match.
+    :return: Processed video background.
+    """
     background = VideoFileClip(background_path).loop(duration=audio_duration)
 
     max_start_time = max(0, background.duration - 120)
@@ -166,6 +241,14 @@ def process_background(background_path, audio_duration):
 
 
 def process_captions(t, caption_file, font):
+    """
+    Generate a frame with captions for a given timestamp.
+
+    :param t: Timestamp in seconds to generate the caption frame for.
+    :param caption_file: Path to the .srt subtitle file.
+    :param font: Path to the font file used for rendering the captions.
+    :return: An RGB frame with rendered captions.
+    """
     subtitles = pysubs2.load(caption_file)
     captions = [
         (event.start / 1000, event.end / 1000, event.text) for event in subtitles
@@ -211,6 +294,13 @@ def process_captions(t, caption_file, font):
 
 
 def process_text(post_text, key):
+    """
+    Refine the grammar and readability of the provided text using OpenAI GPT-3.5.
+
+    :param post_text: The input text to be improved.
+    :param key: API key for the OpenAI service (unused in the current implementation).
+    :return: Improved text optimized for text-to-speech readability.
+    """
     data = ""
     with open("gpt-keys.json", "r") as keys:
         data = json.load(keys)
@@ -239,6 +329,13 @@ def process_text(post_text, key):
 
 
 def apply_opacity(get_frame, t):
+    """
+    Apply opacity to a frame based on a given time.
+
+    :param get_frame: Function to retrieve the frame at the given time.
+    :param t: Time for which the frame needs to be fetched.
+    :return: Adjusted frame with applied opacity.
+    """
     frame = get_frame(t)
     if t < 3:
         return frame * 0
@@ -247,16 +344,34 @@ def apply_opacity(get_frame, t):
 
 
 def threshold(frame, thr=0.5):
+    """
+    Apply a threshold to a given frame.
+
+    :param frame: Input frame to be thresholded.
+    :param thr: Threshold value (default is 0.5).
+    :return: Frame after thresholding.
+    """
     mask = (frame > thr).astype(np.uint8) * 255  # Convert 1 to 255 for a white mask
     return np.stack([mask] * 3, axis=-1)
 
 
 def write_title(post_title, title_path):
+    """
+    Write the provided title to a file.
+
+    :param post_title: The title to be written.
+    :param title_path: Path of the file where the title should be written.
+    """
     with open(title_path, "w") as file:
         file.write(post_title)
 
 
 def pre_process(config):
+    """
+    Pre-process the data required for video composition.
+    
+    :param config: Dictionary containing configuration parameters.
+    """
     credentials = {
         "client_id": config["client_id"],
         "client_secret": config["client_secret"],
@@ -291,6 +406,11 @@ def pre_process(config):
 
 
 def composite(config):
+    """
+    Compose the final video using pre-processed data and assets.
+    
+    :param config: Dictionary containing configuration parameters.
+    """
     audio = AudioFileClip(config["voiceover_file"])
     img = ImageClip(config["img_file"]).set_duration(3)
     background = process_background(config["background_video"], audio.duration)
